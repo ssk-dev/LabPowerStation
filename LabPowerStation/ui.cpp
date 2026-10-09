@@ -233,10 +233,13 @@ void hardwareTest()
     label(boot, 48, 28, 710, "LAB POWER STATION", &lv_font_montserrat_40, cyan);
     label(boot, 48, 82, 710, "Portable Electronics Laboratory / Hardware Test", &lv_font_montserrat_20);
     auto result = label(boot, 64, 132, 680, "", &lv_font_montserrat_20);
-    text(result, "ESP32-S3                       OK\nFlash                       %lu MB\nPSRAM                         %lu MB\nLCD                    800 x 480 / initialisiert\nGT911                         Treiber initialisiert\nLVGL                       %d.%d.%d",
+    char sdInfo[32];
+    if (context().state.sdMounted) snprintf(sdInfo, sizeof(sdInfo), "%.1fGB / %.1fGB", context().state.sdUsedGB, context().state.sdTotalGB);
+    else snprintf(sdInfo, sizeof(sdInfo), "nicht erkannt");
+    text(result, "ESP32-S3                       OK\nFlash                       %lu MB\nPSRAM                         %lu MB\nLCD                    800 x 480 / initialisiert\nGT911                         Treiber initialisiert\nLVGL                       %d.%d.%d\nSD-Karte                       %s",
         static_cast<unsigned long>(context().state.flashBytes / 1048576),
         static_cast<unsigned long>(context().state.psramBytes / 1048576),
-        LVGL_VERSION_MAJOR, LVGL_VERSION_MINOR, LVGL_VERSION_PATCH);
+        LVGL_VERSION_MAJOR, LVGL_VERSION_MINOR, LVGL_VERSION_PATCH, sdInfo);
     auto progress = lv_bar_create(boot);
     lv_obj_set_pos(progress, 64, 306);
     lv_obj_set_size(progress, 670, 12);
@@ -324,8 +327,11 @@ void update(uint32_t now)
     if (now - lastStatus >= Config::statusMs) {
         lastStatus = now;
         const unsigned minutes = state.uptimeMs / 60000;
-        text(status, "UP %02u:%02u  WIFI --  USB ?  SD --  FAN %u%% D  %.1f C D  %s",
-            minutes / 60, minutes % 60, state.fanPercent, state.temperature,
+        char sdInfo[24];
+        if (state.sdMounted) snprintf(sdInfo, sizeof(sdInfo), "%.1fGB / %.1fGB", state.sdUsedGB, state.sdTotalGB);
+        else snprintf(sdInfo, sizeof(sdInfo), "--");
+        text(status, "UP %02u:%02u  WIFI --  USB ?  SD %s  FAN %u%% D  %.1f C D  %s",
+            minutes / 60, minutes % 60, sdInfo, state.fanPercent, state.temperature,
             state.fault == Fault::None ? (state.simulation ? "DEMO" : "LOCK") : "FAULT");
         unsigned opacity = (100 - state.settings.contrast) * 180 / 100;
         if (state.settings.night && opacity < 80) opacity = 80;

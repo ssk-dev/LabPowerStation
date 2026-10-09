@@ -7,6 +7,7 @@
 #include "measurement.h"
 #include "power_supply.h"
 #include "ui.h"
+#include "storage.h"
 
 namespace {
 SystemState state;
@@ -45,6 +46,7 @@ void setup()
     if (!display.begin(hardware.board().getLCD())) { fail("LVGL / display buffer"); return; }
     if (!touch.begin(hardware.board().getTouch())) { fail("GT911 input registration"); return; }
     if (!measurements.begin()) { fail("PSRAM history allocation"); return; }
+    storage.begin(state, hardware.board()); // Optional: no SD card is not a fatal error, only disables settings.json persistence.
     UI::begin(uiContext);
     if (!SIMULATION_MODE) power.trip(Fault::ADC);
 #if DEBUG_ENABLED

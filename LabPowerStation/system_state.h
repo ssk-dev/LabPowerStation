@@ -75,6 +75,8 @@ struct SystemState {
     bool simulation = true;
     bool wifiConnected = false;
     bool sdMounted = false;
+    float sdUsedGB = 0;
+    float sdTotalGB = 0;
     bool exportRequested = false;
     bool restartRequested = false;
     bool settingsDirty = false; // Set by the UI when a persisted Settings field changes.

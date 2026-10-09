@@ -8,7 +8,7 @@ lv_obj_t *menu, *detail, *heading, *description, *slider, *sliderValue, *control
 unsigned category = 0;
 const char *categories[] = {"GENERAL", "DISPLAY", "MEASUREMENT", "POWER SUPPLY", "CALIBRATION", "LIMITS", "FAN", "WIFI", "LOGGING", "SYSTEM"};
 const char *details[] = {
-    "Sprache: Deutsch / technische Begriffe Englisch\nEinheiten: SI, Temperatur Celsius, Zeit: Uptime\nStart: Hardwaretest, dann Dashboard. Kein Timeout.\nTon: kein Buzzer angebunden. Einstellungen nur RAM.",
+    "Sprache: Deutsch / technische Begriffe Englisch\nEinheiten: SI, Temperatur Celsius, Zeit: Uptime\nStart: Hardwaretest, dann Dashboard. Kein Timeout.\nTon: kein Buzzer angebunden. Einstellungen in\n/settings.json auf SD/TF-Karte (ohne Karte: RAM).",
     "Backlight EXIO2: EIN/AUS, kein PWM-Dimmen.\nRegler: SOFTWARE-Dimmung, kein Stromspareffekt.\nTheme: Dark. Night Mode reduziert die Bildhelligkeit.\nGT911: Herstellerkoordinaten, keine Kalibrierung noetig.",
     "Quelle: SimulationSource, keine ADCs verbunden.\nUpdate Rate: 10 Hz oder 20 Hz. Keine ADC-Filterung.\nACS758 / ADS1256 erst nach Schaltungsplanung.\nUI kennt keine physischen ADC-Kanaele.",
     "Alle Ausgaenge starten OFF und bleiben nach Fehler OFF.\nDEMO VAR: 0-30 V / 0-5 A. Keine Hardware-Nennwerte!\nCV/CC wird fuer eine ohmsche Demo-Last simuliert.\nKeine Rampensteuerung oder echte Leistungsstufe.",
@@ -16,7 +16,7 @@ const char *details[] = {
     "OVP / OCP / OTP / SHORT: Fehleranzeige und Abschaltung\nder Simulation. Keine reale Schutzschaltung!\nUnabhaengige Hardwareabschaltung zwingend notwendig.\nFehlereinspeisung im System-Testmodus.",
     "Luefter ist NICHT angeschlossen. Anzeige nur Demo.\nAUTO: Prozentwert aus simulierter Temperatur.\nMANUAL: Prozentwert ueber Regler.\nSILENT: Demo-Handbetrieb mit 20 Prozent.",
     "WLAN ist in Phase 1 deaktiviert. SSID / IP: nicht vorhanden.\nKeine Zugangsdaten gespeichert, keine Verbindungen.\nConnect/Disconnect erst mit NetworkManager-Backend.\nTouch und Logging funktionieren offline.",
-    "Logging: maximal 120 Demo-Samples im RAM, 1 Hz.\nExport CSV ueber Serial 115200, keine SD-Datei.\nExport pausiert Aufnahme; Ringdaten bleiben konsistent.\nSD-SPI / EXIO4-CS ist noch nicht initialisiert.",
+    "Logging: maximal 120 Demo-Samples im RAM, 1 Hz.\nExport CSV ueber Serial 115200, keine SD-Datei.\nExport pausiert Aufnahme; Ringdaten bleiben konsistent.\nEinstellungen werden automatisch in /settings.json\nauf der SD/TF-Karte gespeichert (EXIO4-CS, SPI).",
     ""
 };
 
@@ -29,8 +29,10 @@ void testLongPress(lv_event_t *) { testMode(); }
 void sliderChanged(lv_event_t *)
 {
     unsigned value = lv_slider_get_value(slider);
-    if (category == 1) context().state.settings.contrast = value;
-    if (category == 6) context().state.settings.fanManual = value;
+    auto &state = context().state;
+    if (category == 1) state.settings.contrast = value;
+    if (category == 6) state.settings.fanManual = value;
+    state.settingsDirty = true;
     updateSettings();
 }
 void configure(unsigned selected)
@@ -79,10 +81,10 @@ void action(lv_event_t *event)
     auto &state = context().state;
     switch (category) {
         case 1:
-            if (index == 0) state.settings.night = !state.settings.night;
+            if (index == 0) { state.settings.night = !state.settings.night; state.settingsDirty = true; }
             else hardwareTest();
             break;
-        case 2: state.settings.updateMs = index == 0 ? 100 : 50; break;
+        case 2: state.settings.updateMs = index == 0 ? 100 : 50; state.settingsDirty = true; break;
         case 3:
             if (index == 0) context().power.allOff();
             else numeric(index == 2);
@@ -94,9 +96,10 @@ void action(lv_event_t *event)
                 state.settings.fanManual = 20;
                 lv_slider_set_value(slider, 20, LV_ANIM_OFF);
             }
+            state.settingsDirty = true;
             break;
         case 8:
-            if (index == 0) state.settings.logging = !state.settings.logging;
+            if (index == 0) { state.settings.logging = !state.settings.logging; state.settingsDirty = true; }
             else {
                 state.exportRequested = true;
                 message("CSV EXPORT", "CSV-Ausgabe angefordert (Serial, 115200 Baud).\n\nVorher Logging aktivieren und Daten sammeln.\nBis zu 120 Samples, Aufnahme pausiert beim Export.\nOhne seriellen Empfaenger kann Export warten.\nKeine SD-Datei, kein Netzwerktransfer.");
@@ -108,9 +111,10 @@ void action(lv_event_t *event)
             else {
                 context().power.allOff();
                 state.settings = Settings{};
+                state.settingsDirty = true;
                 context().power.setVoltage(24);
                 context().power.setCurrentLimit(5);
-                message("DEFAULTS", "RAM-Einstellungen zurueckgesetzt. Ausgaenge OFF.\n\nKeine Zugangsdaten / NVS-Einstellungen vorhanden.\nMesshistorie bleibt bis zum Neustart erhalten.\nEin latched Fehler wird NICHT geloescht.");
+                message("DEFAULTS", "Einstellungen zurueckgesetzt und gespeichert. Ausgaenge OFF.\n\nKeine Zugangsdaten / NVS-Einstellungen vorhanden.\nMesshistorie bleibt bis zum Neustart erhalten.\nEin latched Fehler wird NICHT geloescht.");
             }
             break;
         default: break;
