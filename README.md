@@ -155,13 +155,20 @@ contain anything:
 
 ```powershell
 & 'C:\Program Files\Arduino CLI\arduino-cli.exe' compile `
-    --fqbn esp32:esp32:esp32s3 `
+    --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc,FlashSize=16M,PSRAM=opi,CPUFreq=240 `
     --libraries 'C:\Workspace\tools\projekte\libraries' `
     'C:\Workspace\tools\projekte\Labornetzteil\LabPowerStation'
 ```
 
-Verified result (clean build): **821706 bytes (62%) flash**, **29256 bytes (8%)
-RAM**, 0 errors.
+The explicit board options (`CDCOnBoot=cdc`, `FlashSize=16M`, `PSRAM=opi`,
+`CPUFreq=240`) are required to match the settings in [Section 4](#4-arduino-ide-settings) —
+the bare `esp32:esp32:esp32s3` FQBN silently falls back to the ESP32 core's
+defaults (4 MB flash, PSRAM disabled, USB CDC on boot disabled), which does not
+match this project's hardware or the "no automatic reset after flashing"
+behaviour documented in [Section 8](#8-debugging--serial-monitor).
+
+Verified result (16 MB flash partition, real hardware flash via `COM10`):
+**823272 bytes (26%) flash**, **29896 bytes (9%) RAM**, 0 errors.
 
 ### Flashing
 
@@ -175,12 +182,20 @@ Then upload:
 
 ```powershell
 & 'C:\Program Files\Arduino CLI\arduino-cli.exe' upload `
-    --fqbn esp32:esp32:esp32s3 `
+    --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc,FlashSize=16M,PSRAM=opi,CPUFreq=240 `
     --port COM10 `
     'C:\Workspace\tools\projekte\Labornetzteil\LabPowerStation'
 ```
 
 (Replace `COM10` with your actual port if different.)
+
+With `CDCOnBoot=cdc` set, `esptool` performs a working automatic
+**"Hard resetting via RTS pin..."** at the end of a successful upload, and the
+native USB-CDC serial port (`COM10`) stays available immediately after reset —
+no manual RST/BOOT button press is required. If `CDCOnBoot` is left at its
+default (disabled), the native USB port only appears once the sketch itself
+calls `Serial.begin()`, which looks like "no automatic reset happened" even
+though the reset pulse was sent correctly.
 
 ---
 
@@ -424,14 +439,17 @@ hardware can be added later by implementing new `MeasurementSource`,
 4. **Tools → Flash Size** → **16MB (128MB)**.
 5. **Tools → PSRAM** → **OPI PSRAM**.
 6. **Tools → CPU Frequency** → **240MHz (WiFi)**.
-7. Install/point to the required libraries (Section 5) — `ESP32_Display_Panel`,
+7. **Tools → USB CDC On Boot** → **Enabled** (without this, the native USB
+   serial port only appears once the sketch calls `Serial.begin()`, which looks
+   like the automatic reset after flashing is not working).
+8. Install/point to the required libraries (Section 5) — `ESP32_Display_Panel`,
    `ESP32_IO_Expander`, `esp-lib-utils`, `lvgl` 8.4.0.
-8. Open `LabPowerStation.ino`.
-9. **Verify/Compile** (or the `arduino-cli compile` command from Section 7).
-10. Select the correct **Port** (e.g. `COM10`) under **Tools → Port**.
-11. **Upload** (or the `arduino-cli upload` command from Section 7).
-12. Open **Tools → Serial Monitor** at **115200 baud**.
-13. Confirm the boot banner and hardware checklist appear, then touch the screen
+9. Open `LabPowerStation.ino`.
+10. **Verify/Compile** (or the `arduino-cli compile` command from Section 7).
+11. Select the correct **Port** (e.g. `COM10`) under **Tools → Port**.
+12. **Upload** (or the `arduino-cli upload` command from Section 7).
+13. Open **Tools → Serial Monitor** at **115200 baud**.
+14. Confirm the boot banner and hardware checklist appear, then touch the screen
     to continue to the Dashboard.
 
 ---

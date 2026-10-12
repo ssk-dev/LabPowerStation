@@ -6,7 +6,8 @@ namespace UI {
 namespace {
 lv_obj_t *menu, *detail, *heading, *description, *slider, *sliderValue, *controls[4];
 unsigned category = 0;
-const char *categories[] = {"GENERAL", "DISPLAY", "MEASUREMENT", "POWER SUPPLY", "CALIBRATION", "LIMITS", "FAN", "WIFI", "LOGGING", "SYSTEM"};
+int connectionSub = -1;
+const char *categories[] = {"GENERAL", "DISPLAY", "MEASUREMENT", "POWER SUPPLY", "CALIBRATION", "LIMITS", "FAN", "CONNECTION", "LOGGING", "SYSTEM"};
 const char *details[] = {
     "Sprache: Deutsch / technische Begriffe Englisch\nEinheiten: SI, Temperatur Celsius, Zeit: Uptime\nStart: Hardwaretest, dann Dashboard. Kein Timeout.\nTon: kein Buzzer angebunden. Einstellungen in\n/settings.json auf SD/TF-Karte (ohne Karte: RAM).",
     "Backlight EXIO2: EIN/AUS, kein PWM-Dimmen.\nRegler: SOFTWARE-Dimmung, kein Stromspareffekt.\nTheme: Dark. Night Mode reduziert die Bildhelligkeit.\nGT911: Herstellerkoordinaten, keine Kalibrierung noetig.",
@@ -15,9 +16,15 @@ const char *details[] = {
     "3.3 V / 5 V / 12 V / VAR: keine reale Kalibrierung.\nVoltage Offset/Gain und Current Offset/Gain erst mit\nvalidierter Referenz und ADC-Treiber freigeben.\nKeine wirkungslosen Kalibrierwerte speichern.",
     "OVP / OCP / OTP / SHORT: Fehleranzeige und Abschaltung\nder Simulation. Keine reale Schutzschaltung!\nUnabhaengige Hardwareabschaltung zwingend notwendig.\nFehlereinspeisung im System-Testmodus.",
     "Luefter ist NICHT angeschlossen. Anzeige nur Demo.\nAUTO: Prozentwert aus simulierter Temperatur.\nMANUAL: Prozentwert ueber Regler.\nSILENT: Demo-Handbetrieb mit 20 Prozent.",
-    "WLAN ist in Phase 1 deaktiviert. SSID / IP: nicht vorhanden.\nKeine Zugangsdaten gespeichert, keine Verbindungen.\nConnect/Disconnect erst mit NetworkManager-Backend.\nTouch und Logging funktionieren offline.",
+    "Alle Verbindungsarten sind in Phase 1 deaktiviert.\nKeine Zugangsdaten gespeichert, keine Verbindungen.\nUnterpunkt waehlen: WIFI / BLUETOOTH / WEB / MQTT.\nTouch und Logging funktionieren offline.",
     "Logging: maximal 120 Demo-Samples im RAM, 1 Hz.\nExport CSV ueber Serial 115200, keine SD-Datei.\nExport pausiert Aufnahme; Ringdaten bleiben konsistent.\nEinstellungen werden automatisch in /settings.json\nauf der SD/TF-Karte gespeichert (EXIO4-CS, SPI).",
     ""
+};
+const char *connectionDetails[] = {
+    "WLAN ist in Phase 1 deaktiviert. SSID / IP: nicht vorhanden.\nKeine Zugangsdaten gespeichert, keine Verbindungen.\nConnect/Disconnect erst mit NetworkManager-Backend.\nTouch und Logging funktionieren offline.",
+    "Bluetooth ist in Phase 1 deaktiviert. Kein Pairing,\nkeine Geraeteliste, keine BLE-Services aktiv.\nAnbindung erst mit validiertem Bluetooth-Stack\nund klar definiertem Anwendungsfall.",
+    "Web-Interface ist in Phase 1 deaktiviert. Kein lokaler\nHTTP-Server, keine Fernsteuerung ueber Browser.\nErst nach WLAN-Anbindung und Sicherheitskonzept\n(Authentifizierung, HTTPS) sinnvoll umsetzbar.",
+    "MQTT ist in Phase 1 deaktiviert. Kein Broker, keine\nTopics, keine Telemetrie-Uebertragung aktiv.\nAnbindung erst nach WLAN-Verbindung und mit\nvalidierter Broker-Konfiguration (TLS, Zugangsdaten)."
 };
 
 void back(lv_event_t *)
@@ -63,6 +70,9 @@ void configure(unsigned selected)
             lv_slider_set_range(slider, 0, 100);
             lv_slider_set_value(slider, context().state.settings.fanManual, LV_ANIM_OFF);
             show(0, "AUTO"); show(1, "MANUAL"); show(2, "SILENT"); break;
+        case 7:
+            connectionSub = -1;
+            show(0, "WIFI"); show(1, "BLUETOOTH"); show(2, "WEB"); show(3, "MQTT"); break;
         case 8: show(0, "LOGGING ON/OFF"); show(1, "EXPORT CSV"); break;
         case 9: show(0, "TESTMODE"); show(1, "NEUSTART"); show(2, "DEFAULTS"); break;
         default: break;
@@ -97,6 +107,10 @@ void action(lv_event_t *event)
                 lv_slider_set_value(slider, 20, LV_ANIM_OFF);
             }
             state.settingsDirty = true;
+            break;
+        case 7:
+            connectionSub = static_cast<int>(index);
+            text(description, "%s", connectionDetails[index]);
             break;
         case 8:
             if (index == 0) { state.settings.logging = !state.settings.logging; state.settingsDirty = true; }
@@ -165,6 +179,9 @@ void updateSettings()
         text(sliderValue, "%u %% DEMO", state.settings.fanManual);
         checked(controls[0], state.settings.fanAuto);
         checked(controls[1], !state.settings.fanAuto);
+    }
+    if (category == 7) {
+        for (unsigned i = 0; i < 4; ++i) checked(controls[i], connectionSub == static_cast<int>(i));
     }
     if (category == 8) checked(controls[0], state.settings.logging);
 }
